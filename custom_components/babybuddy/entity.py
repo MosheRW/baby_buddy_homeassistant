@@ -187,10 +187,7 @@ class BabyBuddyChildTimerSwitch(CoordinatorEntity, SwitchEntity):
         """Return entity state."""
         if self.child[ATTR_ID] in self.coordinator.data[1]:
             timer_data = self.coordinator.data[1][self.child[ATTR_ID]][ATTR_TIMERS]
-            # In Babybuddy 2.0 'active' is not in the JSON response, so return
-            # True if any timers are returned, as only active timers are
-            # returned.
-            return timer_data.get("active", len(timer_data) > 0)
+            return len(timer_data) > 0
         return False
 
     @property
@@ -198,7 +195,13 @@ class BabyBuddyChildTimerSwitch(CoordinatorEntity, SwitchEntity):
         """Return entity specific state attributes for babybuddy."""
         attrs: dict[str, Any] = {}
         if self.is_on:
-            attrs = self.coordinator.data[1][self.child[ATTR_ID]].get(ATTR_TIMERS)
+            timers = self.coordinator.data[1][self.child[ATTR_ID]].get(ATTR_TIMERS, [])
+            attrs = {
+                ATTR_TIMERS: timers,
+                "active": True,
+                "count": len(timers),
+                ATTR_ID: timers[-1][ATTR_ID],
+            }
         return attrs
 
     async def async_turn_on(self, **kwargs: Any) -> None:
@@ -207,8 +210,8 @@ class BabyBuddyChildTimerSwitch(CoordinatorEntity, SwitchEntity):
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Delete active timer."""
-        timer_id = self.extra_state_attributes[ATTR_ID]
-        await self.coordinator.client.async_delete(ATTR_TIMERS, timer_id)
+        for timer in self.extra_state_attributes.get(ATTR_TIMERS, []):
+            await self.coordinator.client.async_delete(ATTR_TIMERS, timer[ATTR_ID])
         await self.coordinator.async_request_refresh()
 
 
