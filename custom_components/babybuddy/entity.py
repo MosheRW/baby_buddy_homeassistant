@@ -12,7 +12,7 @@ from homeassistant.const import ATTR_ID, CONF_API_KEY, CONF_HOST, CONF_PATH, CON
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.typing import StateType
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
-from homeassistant.util import dt as dt_util
+from homeassistant.util import dt as dt_util, slugify
 
 from .const import (
     ATTR_BABYBUDDY_CHILD,
@@ -26,6 +26,7 @@ from .const import (
     ATTR_PICTURE,
     ATTR_SLUG,
     ATTR_SOLID,
+    ATTR_START,
     ATTR_TIMER,
     ATTR_TIMERS,
     ATTR_WET,
@@ -233,6 +234,8 @@ class BabyBuddyTimerSensor(BabyBuddySensor):
         )
         self._attr_device_class = SensorDeviceClass.TIMESTAMP
         self._attr_icon = ATTR_ICON_TIMER_SAND
+        child_slug = slugify(f"{child[ATTR_FIRST_NAME]}_{child[ATTR_LAST_NAME]}")
+        self.entity_id = f"sensor.{child_slug}_timer_{timer_id}"
 
     def _get_timer(self) -> dict | None:
         if not self.coordinator.data:

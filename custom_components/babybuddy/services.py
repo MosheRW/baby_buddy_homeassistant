@@ -409,20 +409,29 @@ async def async_start_timer(call: ServiceCall) -> None:
 async def async_stop_timer(call: ServiceCall) -> None:
     """Stop (delete) a running timer for a child."""
     coordinator = await __async_extract_entry_coordinator(call)
-    data = await __setup_service_data(call, coordinator)
-    child_id = data[ATTR_CHILD]
+
+    child_entity_id = call.data[ATTR_CHILD]
+    child_state = call.hass.states.get(child_entity_id)
+    if not child_state:
+        LOGGER.error("Child entity %s not found", child_entity_id)
+        return
+
+    child_id = child_state.attributes.get(ATTR_ID)
+    if child_id is None:
+        LOGGER.error("Could not extract child ID from %s", child_entity_id)
+        return
 
     timers = coordinator.data[1].get(child_id, {}).get(ATTR_TIMERS, [])
 
     timer_id = call.data.get("timer_id")
-    if timer_id:
+    if timer_id is not None:
         if not any(t[ATTR_ID] == timer_id for t in timers):
-            LOGGER.error(f"Timer {timer_id} not found or not active for child {child_id}")
+            LOGGER.error("Timer %s not active for child %s", timer_id, child_id)
             return
     elif timers:
         timer_id = timers[0][ATTR_ID]
     else:
-        LOGGER.error(f"No active timers found for child {child_id}")
+        LOGGER.error("No active timers for child %s", child_id)
         return
 
     await coordinator.client.async_delete(ATTR_TIMERS, str(timer_id))
