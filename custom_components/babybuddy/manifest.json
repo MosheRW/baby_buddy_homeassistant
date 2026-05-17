@@ -1,6 +1,7 @@
 {
   "domain": "babybuddy",
   "name": "Baby Buddy",
+  "homeassistant": "2023.1.0",
   "codeowners": ["@jcgoette", "@mosheRW"],
   "config_flow": true,
   "documentation": "https://github.com/mosherw/baby_buddy_homeassistant",
@@ -8,5 +9,5 @@
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/mosherw/baby_buddy_homeassistant/issues",
   "requirements": [],
-  "version": "v0.0.1"
+  "version": "0.0.1"
 }
