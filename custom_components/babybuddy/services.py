@@ -102,24 +102,13 @@ COMMON_FIELDS_TIMER: dict[vol.Required | vol.Optional | vol.Exclusive, Any] = {
 
 async def __async_extract_entry_coordinator(call: ServiceCall) -> BabyBuddyCoordinator:
     """Extract coordinator from a service call."""
-    hass: HomeAssistant = call.hass
-    entry: BabyBuddyConfigEntry = hass.config_entries.async_loaded_entries(DOMAIN)[0]
-    entry = er.async_get(hass).async_get(call.data.get(ATTR_CHILD))
-
-    entry = None
-    for entry in call.hass.config_entries.async_loaded_entries(DOMAIN):
-        if entry.state is not ConfigEntryState.LOADED:
-            raise ServiceValidationError(
-                translation_domain=DOMAIN,
-                translation_key="entry_not_loaded",
-            )
-    if not entry:
-        raise ServiceValidationError(
-            translation_domain=DOMAIN,
-            translation_key="entry_not_loaded",
-        )
-    coordinator = entry.runtime_data.coordinator
-    return coordinator
+    for entry in call.hass.config_entries.async_entries(DOMAIN):
+        if entry.state is ConfigEntryState.LOADED:
+            return entry.runtime_data.coordinator
+    raise ServiceValidationError(
+        translation_domain=DOMAIN,
+        translation_key="entry_not_loaded",
+    )
 
 
 async def __setup_service_data(
@@ -202,14 +191,16 @@ async def __setup_service_data(
 
 
 async def __set_common_fields(
-    call: ServiceCall, data: dict[str, Any]
+    call: ServiceCall, data: dict[str, Any], coordinator: BabyBuddyCoordinator
 ) -> dict[str, Any]:
     """Set data common fields."""
 
     if data.get(ATTR_TIMER):
-        if not self.is_on:
-            raise ValidationError("Timer not found or stopped. Timer must be active.")
-        data[ATTR_TIMER] = self.extra_state_attributes[ATTR_ID]
+        child_id = data[ATTR_CHILD]
+        timers = coordinator.data[1].get(child_id, {}).get(ATTR_TIMERS, [])
+        if not timers:
+            raise ValidationError("No active timer found for this child.")
+        data[ATTR_TIMER] = timers[0][ATTR_ID]
     else:
         data[ATTR_START] = get_datetime_from_time(
             call.data.get(ATTR_START) or dt_util.now()
@@ -444,7 +435,7 @@ async def async_add_feeding(call: ServiceCall) -> None:
     data = await __setup_service_data(call, coordinator)
 
     try:
-        data = await __set_common_fields(call, data)
+        data = await __set_common_fields(call, data, coordinator)
     except ValidationError as error:
         LOGGER.error(error)
         return
@@ -471,7 +462,7 @@ async def async_add_pumping(call: ServiceCall) -> None:
     data = await __setup_service_data(call, coordinator)
 
     try:
-        data = await __set_common_fields(call, data)
+        data = await __set_common_fields(call, data, coordinator)
     except ValidationError as error:
         LOGGER.error(error)
         return
@@ -491,7 +482,7 @@ async def async_add_sleep(call: ServiceCall) -> None:
     data = await __setup_service_data(call, coordinator)
 
     try:
-        data = await __set_common_fields(call, data)
+        data = await __set_common_fields(call, data, coordinator)
     except ValidationError as error:
         LOGGER.error(error)
         return
@@ -511,7 +502,7 @@ async def async_add_tummy_time(call: ServiceCall) -> None:
     data = await __setup_service_data(call, coordinator)
 
     try:
-        data = await __set_common_fields(call, data)
+        data = await __set_common_fields(call, data, coordinator)
     except ValidationError as error:
         LOGGER.error(error)
         return
@@ -660,7 +651,7 @@ def async_setup_services(hass: HomeAssistant) -> None:
         async_add_feeding,
         vol.Schema(
             {
-                **COMMON_FIELDS,
+                **COMMON_FIELDS_TIMER,
                 vol.Required(ATTR_TYPE): vol.In(FEEDING_TYPES),
                 vol.Required(ATTR_METHOD): vol.In(FEEDING_METHODS),
                 vol.Optional(ATTR_AMOUNT): cv.positive_float,
@@ -674,7 +665,7 @@ def async_setup_services(hass: HomeAssistant) -> None:
         async_add_pumping,
         vol.Schema(
             {
-                **COMMON_FIELDS,
+                **COMMON_FIELDS_TIMER,
                 vol.Required(ATTR_AMOUNT): cv.positive_float,
                 vol.Optional(ATTR_NOTES): cv.string,
             }
@@ -686,7 +677,7 @@ def async_setup_services(hass: HomeAssistant) -> None:
         async_add_sleep,
         vol.Schema(
             {
-                **COMMON_FIELDS,
+                **COMMON_FIELDS_TIMER,
                 vol.Optional(ATTR_NAP): cv.boolean,
                 vol.Optional(ATTR_NOTES): cv.string,
             }
@@ -698,7 +689,7 @@ def async_setup_services(hass: HomeAssistant) -> None:
         async_add_tummy_time,
         vol.Schema(
             {
-                **COMMON_FIELDS,
+                **COMMON_FIELDS_TIMER,
                 vol.Optional(ATTR_MILESTONE): cv.string,
             }
         ),
