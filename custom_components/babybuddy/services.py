@@ -35,6 +35,8 @@ from .const import (
     ATTR_ACTION_ADD_TUMMY_TIME,
     ATTR_ACTION_ADD_WEIGHT,
     ATTR_ACTION_DELETE_LAST_ENTRY,
+    ATTR_ACTION_START_TIMER,
+    ATTR_ACTION_STOP_TIMER,
     ATTR_AMOUNT,
     ATTR_BIRTH_DATE,
     ATTR_BMI,
@@ -404,6 +406,29 @@ async def async_start_timer(call: ServiceCall) -> None:
     await coordinator.async_request_refresh()
 
 
+async def async_stop_timer(call: ServiceCall) -> None:
+    """Stop (delete) a running timer for a child."""
+    coordinator = await __async_extract_entry_coordinator(call)
+    data = await __setup_service_data(call, coordinator)
+    child_id = data[ATTR_CHILD]
+
+    timers = coordinator.data[1].get(child_id, {}).get(ATTR_TIMERS, [])
+
+    timer_id = call.data.get("timer_id")
+    if timer_id:
+        if not any(t[ATTR_ID] == timer_id for t in timers):
+            LOGGER.error(f"Timer {timer_id} not found or not active for child {child_id}")
+            return
+    elif timers:
+        timer_id = timers[0][ATTR_ID]
+    else:
+        LOGGER.error(f"No active timers found for child {child_id}")
+        return
+
+    await coordinator.client.async_delete(ATTR_TIMERS, str(timer_id))
+    await coordinator.async_request_refresh()
+
+
 async def async_add_feeding(call: ServiceCall) -> None:
     """Add a feeding entry."""
     coordinator = await __async_extract_entry_coordinator(call)
@@ -598,12 +623,24 @@ def async_setup_services(hass: HomeAssistant) -> None:
     )
     hass.services.async_register(
         DOMAIN,
-        "start_timer",
+        ATTR_ACTION_START_TIMER,
         async_start_timer,
         vol.Schema(
             {
+                vol.Required(ATTR_CHILD): cv.entity_id,
                 vol.Optional(ATTR_START): vol.Any(cv.datetime, cv.time),
                 vol.Optional(ATTR_NAME): cv.string,
+            }
+        ),
+    )
+    hass.services.async_register(
+        DOMAIN,
+        ATTR_ACTION_STOP_TIMER,
+        async_stop_timer,
+        vol.Schema(
+            {
+                vol.Required(ATTR_CHILD): cv.entity_id,
+                vol.Optional("timer_id"): cv.positive_int,
             }
         ),
     )
