@@ -144,7 +144,8 @@ add_feeding:
       selector:
         entity:
           integration: babybuddy
-          domain: switch
+          domain: sensor
+          device_class: babybuddy_child
     timer:
       name: Use timer
       description: Use active timer to assign child/start/end
@@ -346,7 +347,8 @@ add_pumping:
       selector:
         entity:
           integration: babybuddy
-          domain: switch
+          domain: sensor
+          device_class: babybuddy_child
     timer:
       name: Use timer
       description: Use active timer to assign child/start/end
@@ -401,7 +403,8 @@ add_sleep:
       selector:
         entity:
           integration: babybuddy
-          domain: switch
+          domain: sensor
+          device_class: babybuddy_child
     timer:
       name: Use timer
       description: Use active timer to assign child/start/end
@@ -495,7 +498,8 @@ add_tummy_time:
       selector:
         entity:
           integration: babybuddy
-          domain: switch
+          domain: sensor
+          device_class: babybuddy_child
     timer:
       name: Use timer
       description: Use active timer to assign child/start/end

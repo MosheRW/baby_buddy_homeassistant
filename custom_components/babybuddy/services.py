@@ -117,36 +117,29 @@ async def __setup_service_data(
     """Extract data with child ID from a service call."""
     data = call.data.copy()
 
-    if (
-        data.get(ATTR_CHILD)
-        and isinstance(data[ATTR_CHILD], str)
-        and data[ATTR_CHILD].startswith("switch.")
-    ):
-        data[ATTR_CHILD] = [
-            child[ATTR_ID]
-            for child in coordinator.data[0]
-            if (
-                f"switch.{slugify(f'{child["first_name"]} {child["last_name"]} Timer')}"
-                == call.data[ATTR_CHILD]
-            )
-        ][0]
-
-    if (
-        data.get(ATTR_CHILD)
-        and isinstance(data[ATTR_CHILD], str)
-        and data[ATTR_CHILD].startswith("sensor.")
-    ):
-        data[ATTR_CHILD] = [
-            child[ATTR_ID]
-            for child in coordinator.data[0]
-            if (
-                f"sensor.{slugify(f'Baby {child["first_name"]} {child["last_name"]}')}"
-                == call.data[ATTR_CHILD]
-            )
-        ][0]
+    child_entity_id = data.get(ATTR_CHILD)
+    if child_entity_id and isinstance(child_entity_id, str):
+        # Primary: read child ID from entity state attributes
+        state = call.hass.states.get(child_entity_id)
+        if state and state.attributes.get(ATTR_ID) is not None:
+            data[ATTR_CHILD] = state.attributes[ATTR_ID]
+        else:
+            # Fallback: match against known entity_id patterns
+            matched_child_id = None
+            for child in coordinator.data[0]:
+                if (
+                    f"sensor.{slugify(f'Baby {child[ATTR_FIRST_NAME]} {child[ATTR_LAST_NAME]}')}" == child_entity_id
+                    or f"switch.{slugify(f'{child[ATTR_FIRST_NAME]} {child[ATTR_LAST_NAME]} {ATTR_TIMER}')}" == child_entity_id
+                ):
+                    matched_child_id = child[ATTR_ID]
+                    break
+            if matched_child_id is not None:
+                data[ATTR_CHILD] = matched_child_id
+            else:
+                LOGGER.error("Could not resolve child for entity %s", child_entity_id)
 
     if call.data.get(ATTR_ENTITY_ID):
-        data[ATTR_CHILD] = [
+        matched = [
             child[ATTR_ID]
             for child in coordinator.data[0]
             if (
@@ -155,37 +148,21 @@ async def __setup_service_data(
                 and child["last_name"].lower()
                 == call.data[ATTR_ENTITY_ID].split(".")[1].split("_")[1]
             )
-        ][0]
+        ]
+        if matched:
+            data[ATTR_CHILD] = matched[0]
 
-    if not data.get(ATTR_CHILD):
-        data[ATTR_CHILD] = [
-            child[ATTR_ID]
-            for child in coordinator.data[0]
-            if (
-                f"sensor.{slugify(f'Baby {child["first_name"]} {child["last_name"]}')}"
-                == call.data[ATTR_CHILD]
-                or f"switch.{slugify(f'{child["first_name"]} {child["last_name"]} Timer')}"
-                == call.data[ATTR_CHILD]
-            )
-        ][0]
-
-    # might have a timer...
+    # If timer=True, look up the active timer ID for this child
     if data.get(ATTR_TIMER):
-        for child in coordinator.data[0]:
-            if (
-                f"sensor.{slugify(f'Baby {child["first_name"]} {child["last_name"]}')}"
-                == call.data[ATTR_CHILD]
-                or f"switch.{slugify(f'{child["first_name"]} {child["last_name"]} Timer')}"
-                == call.data[ATTR_CHILD]
-            ):
-                # do we actually have a timer?
-                if child.get(ATTR_TIMERS):
-                    data[ATTR_TIMER] = [
-                        child[ATTR_TIMERS]["id"] for child in coordinator.data[0]
-                    ]
-            # if not, let's delete that key
+        child_id = data.get(ATTR_CHILD)
+        if isinstance(child_id, int):
+            timers = coordinator.data[1].get(child_id, {}).get(ATTR_TIMERS, [])
+            if timers:
+                data[ATTR_TIMER] = timers[0][ATTR_ID]
             else:
                 del data[ATTR_TIMER]
+        else:
+            del data[ATTR_TIMER]
 
     return data
 
