@@ -36,6 +36,7 @@ from .const import (
     ATTR_FIRST_NAME,
     ATTR_LAST_NAME,
     ATTR_RESULTS,
+    ATTR_TIMERS,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
     LOGGER,
@@ -168,6 +169,21 @@ class BabyBuddyCoordinator(DataUpdateCoordinator):
                     child_data[child[ATTR_ID]][endpoint.key] = data
                     continue
                 child_data[child[ATTR_ID]][endpoint.key] = data[0] if data else {}
+
+            # Fetch all active timers (no limit) so each timer gets its own sensor
+            try:
+                timer_data = await self.client.async_get(
+                    ATTR_TIMERS, f"?child={child[ATTR_ID]}"
+                )
+                child_data[child[ATTR_ID]][ATTR_TIMERS] = timer_data[ATTR_RESULTS]
+            except ClientResponseError as error:
+                LOGGER.debug(
+                    f"Could not fetch timers for {child[ATTR_FIRST_NAME]} {child[ATTR_LAST_NAME]}. error: {error}"
+                )
+                child_data[child[ATTR_ID]][ATTR_TIMERS] = []
+            except (AsyncIOTimeoutError, ClientError) as error:
+                LOGGER.error(error)
+                child_data[child[ATTR_ID]][ATTR_TIMERS] = []
 
         return (children_list[ATTR_RESULTS], child_data)
 

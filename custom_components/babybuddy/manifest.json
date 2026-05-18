@@ -1,12 +1,14 @@
 {
   "domain": "babybuddy",
   "name": "Baby Buddy",
-  "codeowners": ["@jcgoette"],
+  "codeowners": [
+    "@mosheRW"
+  ],
   "config_flow": true,
-  "documentation": "https://github.com/jcgoette/baby_buddy_homeassistant",
+  "documentation": "https://github.com/mosherw/baby_buddy_homeassistant",
   "integration_type": "service",
   "iot_class": "local_polling",
-  "issue_tracker": "https://github.com/jcgoette/baby_buddy_homeassistant/issues",
+  "issue_tracker": "https://github.com/mosherw/baby_buddy_homeassistant/issues",
   "requirements": [],
-  "version": "v0.0.0"
+  "version": "0.0.4"
 }
